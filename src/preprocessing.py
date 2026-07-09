@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from .config import RAW_CSV, CLEANED_CSV, DATA_PROCESSED
+from .config import CLEANED_CSV, RAW_CSV
 
 logger = logging.getLogger(__name__)
 
@@ -92,13 +92,11 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
     # 2. Standardize charger types
     df["type_of_charger"] = df["type_of_charger"].replace(CHARGER_TYPE_MAPPING)
 
-    # 3. Fill null values for secondary plug/power columns
-    na_columns = [
-        "type_of_plug_2", "p2_[kw]",
-        "type_of_plug_3", "p3_[kw]",
-        "type_of_plug_4", "p4_[kw]",
-    ]
-    for col in na_columns:
+    # 3. Missing secondary power values mean no additional rated power. Keep
+    # connector types missing so downstream statistics do not count a sentinel
+    # value such as "0" as a plug standard.
+    secondary_power_columns = ["p2_[kw]", "p3_[kw]", "p4_[kw]"]
+    for col in secondary_power_columns:
         df[col] = df[col].fillna(value="0")
 
     # 4. Drop public key columns (not needed for spatial analysis)
@@ -107,19 +105,22 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
 
     # 5. Fix German decimal format (comma → dot) and convert to float
     numeric_cols = [
-        "longitude_[dg]", "latitude_[dg]", "power_connection_[kw]",
-        "p1_[kw]", "p2_[kw]", "p3_[kw]", "p4_[kw]",
+        "longitude_[dg]",
+        "latitude_[dg]",
+        "power_connection_[kw]",
+        "p1_[kw]",
+        "p2_[kw]",
+        "p3_[kw]",
+        "p4_[kw]",
     ]
     for col in numeric_cols:
         df[col] = df[col].str.replace(",", ".").astype(float)
 
     # 6. Parse dates (German format: DD.MM.YYYY)
-    df["commissioning_date"] = pd.to_datetime(
-        df["commissioning_date"], format="%d.%m.%Y"
-    )
+    df["commissioning_date"] = pd.to_datetime(df["commissioning_date"], format="%d.%m.%Y")
 
     # 7. Strip whitespace from text columns
-    for col in df.select_dtypes(include="object").columns:
+    for col in df.select_dtypes(include=["object", "string"]).columns:
         df[col] = df[col].str.strip()
 
     # 8. Normalize city names

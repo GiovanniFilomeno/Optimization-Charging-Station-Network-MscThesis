@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import pandas as pd
 
-from .config import NETWORKS_BASELINE, FIGURES_DIR
+from .config import FIGURES_DIR, NETWORKS_BASELINE
 from .utils import calculate_weighted_metrics
 
 logger = logging.getLogger(__name__)
@@ -58,11 +58,16 @@ def compute_metrics(graphs: dict[int, nx.Graph]) -> pd.DataFrame:
         rows.append(m)
 
     df = pd.DataFrame(rows)
-    df = df[["year", "total_nodes", "density", "average_distance",
-             "diameter", "average_clustering"]]
+    df = df[
+        ["year", "total_nodes", "density", "average_distance", "diameter", "average_clustering"]
+    ]
     df.columns = [
-        "Year", "Total Nodes", "Density",
-        "Avg. Distance (km)", "Diameter", "Avg. Clustering",
+        "Year",
+        "Total Nodes",
+        "Density",
+        "Avg. Distance (km)",
+        "Diameter",
+        "Avg. Clustering",
     ]
     return df
 
@@ -76,7 +81,7 @@ def plot_metric_trends(df: pd.DataFrame, save: bool = True) -> None:
         ("Diameter", "Graph Diameter"),
         ("Avg. Clustering", "Clustering Coefficient"),
     ]
-    for ax, (col, title) in zip(axes.flat, metrics):
+    for ax, (col, title) in zip(axes.flat, metrics, strict=True):
         ax.plot(df["Year"], df[col], "o-", linewidth=2, markersize=5)
         ax.set_title(title, fontsize=14)
         ax.set_xlabel("Year")

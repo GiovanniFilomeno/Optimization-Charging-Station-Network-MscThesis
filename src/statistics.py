@@ -12,7 +12,6 @@ Usage:
 """
 
 import logging
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -35,11 +34,7 @@ def load_data() -> pd.DataFrame:
 
 def connectors_by_state(data: pd.DataFrame) -> pd.DataFrame:
     """Cumulative connector counts per state, year, and charger type."""
-    df = (
-        data.groupby(["federal_state", "year", "type_of_charger"])
-        .size()
-        .reset_index(name="count")
-    )
+    df = data.groupby(["federal_state", "year", "type_of_charger"]).size().reset_index(name="count")
     df["cumulative_count"] = df.groupby(["federal_state", "type_of_charger"])["count"].cumsum()
     df["pct_change"] = (
         df.groupby(["federal_state", "type_of_charger"])["cumulative_count"].pct_change() * 100
@@ -55,9 +50,9 @@ def power_by_state(data: pd.DataFrame) -> pd.DataFrame:
         .reset_index()
     )
     df.columns = ["federal_state", "year", "type_of_charger", "total_power", "avg_power"]
-    df["cumulative_total_power"] = (
-        df.groupby(["federal_state", "type_of_charger"])["total_power"].cumsum()
-    )
+    df["cumulative_total_power"] = df.groupby(["federal_state", "type_of_charger"])[
+        "total_power"
+    ].cumsum()
     return df
 
 
@@ -65,14 +60,22 @@ def connector_types_by_year(data: pd.DataFrame) -> pd.DataFrame:
     """Track adoption of different plug standards over time."""
     cols = ["type_of_plug_1", "type_of_plug_2", "type_of_plug_3", "type_of_plug_4"]
     melted = pd.melt(
-        data, id_vars=["year"], value_vars=cols,
-        var_name="connector_column", value_name="connector_type",
+        data,
+        id_vars=["year"],
+        value_vars=cols,
+        var_name="connector_column",
+        value_name="connector_type",
     ).dropna()
-    melted["connector_type"] = melted["connector_type"].apply(lambda x: x.split(", "))
+    melted["connector_type"] = melted["connector_type"].astype(str).str.split(", ")
     melted = melted.explode("connector_type")
+    melted["connector_type"] = melted["connector_type"].str.strip()
+    invalid_sentinels = {"", "0", "nan", "none"}
+    melted = melted[~melted["connector_type"].str.casefold().isin(invalid_sentinels)]
     df = (
-        melted.groupby(["year", "connector_type"]).size()
-        .groupby("connector_type").cumsum()
+        melted.groupby(["year", "connector_type"])
+        .size()
+        .groupby("connector_type")
+        .cumsum()
         .reset_index(name="count")
     )
     df["pct_change"] = df.groupby("connector_type")["count"].pct_change() * 100
@@ -82,8 +85,10 @@ def connector_types_by_year(data: pd.DataFrame) -> pd.DataFrame:
 def plot_cumulative_growth(data: pd.DataFrame) -> None:
     """Bar chart: cumulative normal vs. fast charging stations."""
     pivot = data.pivot_table(
-        index="year", columns="type_of_charger",
-        values="power_connection_[kw]", aggfunc="count",
+        index="year",
+        columns="type_of_charger",
+        values="power_connection_[kw]",
+        aggfunc="count",
     ).fillna(0)
     cum = pivot.cumsum().reindex(range(2009, pivot.index.max() + 1)).fillna(method="ffill")
 

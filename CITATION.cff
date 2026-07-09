@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: "If you use this research software, please cite the thesis below."
+title: "Graph-Based Planning for Germany's EV Charging Network"
+type: software
+authors:
+  - family-names: Filomeno
+    given-names: Giovanni
+repository-code: "https://github.com/GiovanniFilomeno/Optimization-Charging-Station-Network-MscThesis"
+url: "https://github.com/GiovanniFilomeno/Optimization-Charging-Station-Network-MscThesis"
+license: MIT
+abstract: >-
+  Research software accompanying a 2023 Master's thesis on representing
+  Germany's public electric-vehicle charging infrastructure as cumulative
+  spatial graphs and exploring alternative station placements through
+  coordinate prediction and evolutionary optimization.
+keywords:
+  - electric vehicle charging
+  - infrastructure planning
+  - graph theory
+  - genetic algorithm
+  - geospatial analysis
+  - Germany
+preferred-citation:
+  type: thesis
+  title: "Analysis and Optimization of the Charging Station Network in Germany"
+  authors:
+    - family-names: Filomeno
+      given-names: Giovanni
+  institution:
+    name: Technical University of Munich
+  thesis-type: "Master's thesis"
+  year: 2023
+  url: "https://github.com/GiovanniFilomeno/Optimization-Charging-Station-Network-MscThesis/blob/main/output/pdf/msc-thesis-public.pdf"

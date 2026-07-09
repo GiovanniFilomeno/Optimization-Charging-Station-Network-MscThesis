@@ -28,10 +28,10 @@ from tqdm import tqdm
 
 from .config import (
     CLEANED_CSV,
+    FIGURES_DIR,
     GERMANY_GEOJSON,
     MAX_EDGE_DISTANCE_KM,
     NETWORKS_BASELINE,
-    FIGURES_DIR,
     STATE_NAME_CORRECTIONS,
 )
 from .utils import get_osrm_distance
@@ -46,9 +46,7 @@ def load_stations(csv_path: Path = CLEANED_CSV) -> pd.DataFrame:
     data["federal_state"] = data["federal_state"].replace(STATE_NAME_CORRECTIONS)
 
     # Create geometry and filter to German boundaries
-    data["geometry"] = data.apply(
-        lambda r: Point(r["longitude_[dg]"], r["latitude_[dg]"]), axis=1
-    )
+    data["geometry"] = data.apply(lambda r: Point(r["longitude_[dg]"], r["latitude_[dg]"]), axis=1)
     gdf = gpd.GeoDataFrame(data, geometry="geometry")
     germany = gpd.read_file(GERMANY_GEOJSON)
     polygon = germany.geometry.unary_union
@@ -96,15 +94,19 @@ def create_network(
     for i in tqdm(range(n), desc=f"Edges ({year})"):
         for j in range(i + 1, n):
             distance = get_osrm_distance(
-                positions[i, 0], positions[i, 1],
-                positions[j, 0], positions[j, 1],
+                positions[i, 0],
+                positions[i, 1],
+                positions[j, 0],
+                positions[j, 1],
             )
             if distance is not None and distance < max_dist_m:
                 network.add_edge(i + 1, j + 1, weight=distance)
 
     logger.info(
         "Year %d: %d nodes, %d edges",
-        year, network.number_of_nodes(), network.number_of_edges(),
+        year,
+        network.number_of_nodes(),
+        network.number_of_edges(),
     )
     return network
 
@@ -128,16 +130,19 @@ def plot_network(
     germany_utm = gpd.read_file(GERMANY_GEOJSON).to_crs("epsg:32632")
 
     nodes = list(network.nodes)
-    positions = [
-        (network.nodes[n]["latitude"], network.nodes[n]["longitude"]) for n in nodes
-    ]
+    positions = [(network.nodes[n]["latitude"], network.nodes[n]["longitude"]) for n in nodes]
     utm = np.array([transformer.transform(p[1], p[0]) for p in positions])
     pos = {nodes[i]: utm[i] for i in range(len(nodes))}
 
     fig, ax = plt.subplots(figsize=(12, 8))
     nx.draw_networkx(
-        network, pos=pos, ax=ax,
-        node_color="lavender", node_size=10, width=1, arrowsize=1,
+        network,
+        pos=pos,
+        ax=ax,
+        node_color="lavender",
+        node_size=10,
+        width=1,
+        arrowsize=1,
     )
     germany_utm.boundary.plot(ax=ax, linewidth=2, color="red", zorder=3)
     plt.title(
@@ -150,7 +155,8 @@ def plot_network(
         out.mkdir(parents=True, exist_ok=True)
         fig.savefig(
             out / f"network_{year}_{max_distance_km}.png",
-            dpi=300, bbox_inches="tight",
+            dpi=300,
+            bbox_inches="tight",
         )
     plt.show()
 
@@ -168,8 +174,13 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     parser = argparse.ArgumentParser(description="Build EV charging station networks")
     parser.add_argument("--year", type=int, help="Single year to build")
-    parser.add_argument("--year-range", type=int, nargs=2, metavar=("START", "END"),
-                        help="Range of years (inclusive)")
+    parser.add_argument(
+        "--year-range",
+        type=int,
+        nargs=2,
+        metavar=("START", "END"),
+        help="Range of years (inclusive)",
+    )
     args = parser.parse_args()
 
     if args.year:

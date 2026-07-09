@@ -11,23 +11,20 @@ Usage:
 
 import argparse
 import logging
-from pathlib import Path
 
 import geopandas as gpd
-import matplotlib.pyplot as plt
 import networkx as nx
 import pandas as pd
 from shapely.geometry import MultiPoint
 
 from .config import (
+    FITNESS_WEIGHTS,
     GERMANY_GEOJSON,
     NETWORKS_BASELINE,
     NETWORKS_OPTIMIZED,
-    FIGURES_DIR,
     NORM_BOUNDS,
-    FITNESS_WEIGHTS,
 )
-from .utils import draw_graph, calculate_weighted_metrics, weighted_mean
+from .utils import calculate_weighted_metrics, draw_graph, weighted_mean
 
 logger = logging.getLogger(__name__)
 
@@ -39,10 +36,7 @@ def _load_polygon():
 
 def coverage_ratio(graph: nx.Graph, country_polygon) -> float:
     """Compute network convex hull area / country area."""
-    coords = [
-        (graph.nodes[n]["longitude"], graph.nodes[n]["latitude"])
-        for n in graph.nodes()
-    ]
+    coords = [(graph.nodes[n]["longitude"], graph.nodes[n]["latitude"]) for n in graph.nodes()]
     hull = MultiPoint(coords).convex_hull
     return hull.area / country_polygon.area
 
@@ -56,12 +50,9 @@ def fitness_function(graph: nx.Graph, year: int, country_polygon) -> float:
     vals = [
         (m["average_distance"] - b["average_distance"][0])
         / (b["average_distance"][1] - b["average_distance"][0]),
-        (m["diameter"] - b["diameter"][0])
-        / (b["diameter"][1] - b["diameter"][0]),
-        (m["average_clustering"] - b["clustering"][0])
-        / (b["clustering"][1] - b["clustering"][0]),
-        1 - (m["density"] - b["density"][0])
-        / (b["density"][1] - b["density"][0]),
+        (m["diameter"] - b["diameter"][0]) / (b["diameter"][1] - b["diameter"][0]),
+        (m["average_clustering"] - b["clustering"][0]) / (b["clustering"][1] - b["clustering"][0]),
+        1 - (m["density"] - b["density"][0]) / (b["density"][1] - b["density"][0]),
         1 - cov,
     ]
     w = list(FITNESS_WEIGHTS.values())
@@ -85,16 +76,18 @@ def compare_networks(years: list[int]) -> pd.DataFrame:
             g_base = nx.read_graphml(str(base_path))
             m_base = calculate_weighted_metrics(g_base, yr)
             f_base = fitness_function(g_base, yr, polygon)
-            rows.append({
-                "Year": yr,
-                "Type": "Baseline",
-                "Fitness": f_base,
-                "Nodes": m_base["total_nodes"],
-                "Density": m_base["density"],
-                "Avg. Dist (km)": m_base["average_distance"],
-                "Diameter": m_base["diameter"],
-                "Clustering": m_base["average_clustering"],
-            })
+            rows.append(
+                {
+                    "Year": yr,
+                    "Type": "Baseline",
+                    "Fitness": f_base,
+                    "Nodes": m_base["total_nodes"],
+                    "Density": m_base["density"],
+                    "Avg. Dist (km)": m_base["average_distance"],
+                    "Diameter": m_base["diameter"],
+                    "Clustering": m_base["average_clustering"],
+                }
+            )
 
         # Optimized
         opt_path = NETWORKS_OPTIMIZED / f"network_{yr}_optimized.graphml"
@@ -102,16 +95,18 @@ def compare_networks(years: list[int]) -> pd.DataFrame:
             g_opt = nx.read_graphml(str(opt_path))
             m_opt = calculate_weighted_metrics(g_opt, yr)
             f_opt = fitness_function(g_opt, yr, polygon)
-            rows.append({
-                "Year": yr,
-                "Type": "Optimized",
-                "Fitness": f_opt,
-                "Nodes": m_opt["total_nodes"],
-                "Density": m_opt["density"],
-                "Avg. Dist (km)": m_opt["average_distance"],
-                "Diameter": m_opt["diameter"],
-                "Clustering": m_opt["average_clustering"],
-            })
+            rows.append(
+                {
+                    "Year": yr,
+                    "Type": "Optimized",
+                    "Fitness": f_opt,
+                    "Nodes": m_opt["total_nodes"],
+                    "Density": m_opt["density"],
+                    "Avg. Dist (km)": m_opt["average_distance"],
+                    "Diameter": m_opt["diameter"],
+                    "Clustering": m_opt["average_clustering"],
+                }
+            )
 
     return pd.DataFrame(rows)
 

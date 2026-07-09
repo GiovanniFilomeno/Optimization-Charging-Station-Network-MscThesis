@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 """
-EV Charging Station Network Optimization — Main Pipeline.
+EV Charging Station Network Optimization — Pipeline Entry Point.
 
-Orchestrates the full end-to-end pipeline:
+Orchestrates the data preparation and model-generation stages:
     1. Preprocessing:    Clean raw Bundesnetzagentur data
     2. Statistics:       Generate descriptive analyses and plots
     3. Network:          Build spatial graphs for each year
     4. Analysis:         Compute topology metrics over time
     5. Prediction:       Train RF models for location prediction
-    6. Optimization:     Run Genetic Algorithm for optimal placement
+    6. Optimization:     Search alternative placements with a Genetic Algorithm
     7. Visualization:    Compare baseline vs. optimized networks
 
+Optimization and visualization require explicit parameters and are therefore
+run as individual steps rather than as part of the default command.
+
 Usage:
-    python main.py                     # Run full pipeline
+    python main.py                     # Run preprocessing through prediction
     python main.py --step preprocess   # Run a single step
     python main.py --step optimize --year 2011 --stations 174
 
@@ -22,7 +25,6 @@ Available steps:
 
 import argparse
 import logging
-import sys
 
 logger = logging.getLogger("pipeline")
 
@@ -36,21 +38,30 @@ def main():
     parser.add_argument(
         "--step",
         choices=[
-            "preprocess", "statistics", "network",
-            "analysis", "prediction", "optimize", "visualize",
+            "preprocess",
+            "statistics",
+            "network",
+            "analysis",
+            "prediction",
+            "optimize",
+            "visualize",
         ],
-        help="Run a single pipeline step (default: run all)",
+        help="Run one pipeline step (default: preprocessing through prediction)",
     )
     parser.add_argument("--year", type=int, help="Target year for optimization")
     parser.add_argument("--stations", type=int, help="Number of new stations for GA")
     parser.add_argument(
-        "--year-range", type=int, nargs=2, metavar=("START", "END"),
+        "--year-range",
+        type=int,
+        nargs=2,
+        metavar=("START", "END"),
         help="Year range for network generation",
     )
     args = parser.parse_args()
 
     steps = (
-        [args.step] if args.step
+        [args.step]
+        if args.step
         else ["preprocess", "statistics", "network", "analysis", "prediction"]
     )
 
@@ -61,33 +72,40 @@ def main():
 
         if step == "preprocess":
             from src.preprocessing import run
+
             run()
 
         elif step == "statistics":
             from src.statistics import run
+
             run()
 
         elif step == "network":
             from src.network import run
+
             yr_range = args.year_range or [2009, 2022]
             run(list(range(yr_range[0], yr_range[1] + 1)))
 
         elif step == "analysis":
             from src.analysis import run
+
             run()
 
         elif step == "prediction":
             from src.prediction import run
+
             run()
 
         elif step == "optimize":
             if not args.year or not args.stations:
                 parser.error("--step optimize requires --year and --stations")
             from src.optimization import run
+
             run(args.year, args.stations)
 
         elif step == "visualize":
             from src.visualization import run
+
             run()
 
     logger.info("Pipeline complete.")

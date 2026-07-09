@@ -10,7 +10,7 @@ Two modes:
        used by the Genetic Algorithm to generate candidate station locations.
 
 Usage:
-    python -m src.prediction                   # full pipeline
+    python -m src.prediction                   # compare models and train yearly models
     python -m src.prediction --compare-only    # model comparison only
 """
 
@@ -53,8 +53,8 @@ def compare_models(data: pd.DataFrame) -> dict:
     y_lat = subset["latitude_[dg]"]
     y_lon = subset["longitude_[dg]"]
 
-    X_train, X_test, y_lat_train, y_lat_test, y_lon_train, y_lon_test = (
-        train_test_split(X, y_lat, y_lon, test_size=0.2, random_state=42)
+    X_train, X_test, y_lat_train, y_lat_test, y_lon_train, y_lon_test = train_test_split(
+        X, y_lat, y_lon, test_size=0.2, random_state=42
     )
 
     results = {}
@@ -77,7 +77,9 @@ def compare_models(data: pd.DataFrame) -> dict:
         }
         logger.info(
             "%s — R²(lat)=%.4f  R²(lon)=%.4f",
-            name, results[name]["R2_lat"], results[name]["R2_lon"],
+            name,
+            results[name]["R2_lat"],
+            results[name]["R2_lon"],
         )
 
     return results
@@ -143,7 +145,8 @@ def run(compare_only: bool = False) -> None:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     parser = argparse.ArgumentParser(description="Train location prediction models")
-    parser.add_argument("--compare-only", action="store_true",
-                        help="Only compare RF vs KNN, skip per-year training")
+    parser.add_argument(
+        "--compare-only", action="store_true", help="Only compare RF vs KNN, skip per-year training"
+    )
     args = parser.parse_args()
     run(compare_only=args.compare_only)

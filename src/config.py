@@ -30,8 +30,8 @@ GERMANY_GEOJSON = DATA_BOUNDARIES / "4_niedrig.geo.json"
 # ──────────────────────────────────────────────────────────────────────
 # Network parameters
 # ──────────────────────────────────────────────────────────────────────
-MAX_EDGE_DISTANCE_KM = 100       # BEV range threshold for edge creation
-EARTH_RADIUS_KM = 6371           # For Haversine distance formula
+MAX_EDGE_DISTANCE_KM = 100  # BEV range threshold for edge creation
+EARTH_RADIUS_KM = 6371  # For Haversine distance formula
 
 # ──────────────────────────────────────────────────────────────────────
 # Encoding corrections (German UTF-8 artifacts)

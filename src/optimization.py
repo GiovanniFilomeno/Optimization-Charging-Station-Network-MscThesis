@@ -2,10 +2,15 @@
 Genetic Algorithm Optimization Module.
 
 Optimizes placement of new EV charging stations using a multi-objective
-Genetic Algorithm that maximizes a weighted fitness function:
+Genetic Algorithm that minimizes a weighted composite score:
 
-    Fitness = 0.3 × avg_distance + 0.1 × diameter + 0.1 × clustering
-            + 0.1 × density + 0.4 × coverage
+    Fitness = 0.3 × normalized average distance
+            + 0.1 × normalized diameter
+            + 0.1 × normalized clustering
+            + 0.1 × (1 - normalized density)
+            + 0.4 × (1 - convex-hull coverage ratio)
+
+Lower fitness is better.
 
 GA components:
     - Initial population: RF-predicted locations, state-proportional
@@ -21,10 +26,8 @@ Usage:
 
 import argparse
 import logging
-import os
 import pickle
 import random
-from pathlib import Path
 
 import geopandas as gpd
 import joblib
@@ -36,6 +39,7 @@ from tqdm import tqdm
 
 from .config import (
     CLEANED_CSV,
+    FITNESS_WEIGHTS,
     GA_ELITISM_FRACTION,
     GA_MUTATION_RATE,
     GA_NO_IMPROVEMENT_THRESHOLD,
@@ -47,10 +51,9 @@ from .config import (
     NETWORKS_BASELINE,
     NETWORKS_OPTIMIZED,
     NORM_BOUNDS,
-    FITNESS_WEIGHTS,
     STATE_NAME_CORRECTIONS,
 )
-from .utils import get_osrm_distance, calculate_weighted_metrics, weighted_mean
+from .utils import calculate_weighted_metrics, get_osrm_distance, weighted_mean
 
 logger = logging.getLogger(__name__)
 
@@ -59,9 +62,7 @@ def _load_data_and_boundaries():
     """Load station data and Germany boundary polygon."""
     data = pd.read_csv(CLEANED_CSV, encoding="utf-8")
     data["federal_state"] = data["federal_state"].replace(STATE_NAME_CORRECTIONS)
-    data["geometry"] = data.apply(
-        lambda r: Point(r["longitude_[dg]"], r["latitude_[dg]"]), axis=1
-    )
+    data["geometry"] = data.apply(lambda r: Point(r["longitude_[dg]"], r["latitude_[dg]"]), axis=1)
     boundary = gpd.read_file(GERMANY_GEOJSON)
     polygon = boundary.geometry.unary_union
     return data, polygon
@@ -116,9 +117,7 @@ def genetic_algorithm(
         # Distribute stations proportionally to existing state distribution
         counts = data["federal_state"].value_counts()
         proportions = counts / counts.sum()
-        per_state = {
-            s: int(round(num_new_stations * p)) for s, p in proportions.items()
-        }
+        per_state = {s: int(round(num_new_stations * p)) for s, p in proportions.items()}
         total = sum(per_state.values())
         if total < num_new_stations:
             top = max(per_state, key=per_state.get)
@@ -157,8 +156,10 @@ def genetic_algorithm(
         for node in g.nodes:
             if node != nid:
                 d = get_osrm_distance(
-                    lat, lon,
-                    g.nodes[node]["latitude"], g.nodes[node]["longitude"],
+                    lat,
+                    lon,
+                    g.nodes[node]["latitude"],
+                    g.nodes[node]["longitude"],
                 )
                 if d is not None and d < max_dist_km * 1000:
                     g.add_edge(nid, node, weight=d)
@@ -167,9 +168,7 @@ def genetic_algorithm(
     # ── Coverage metric ────────────────────────────────────────────────
     def coverage_ratio(g):
         """Network convex hull area / country area."""
-        coords = [
-            (g.nodes[n]["longitude"], g.nodes[n]["latitude"]) for n in g.nodes()
-        ]
+        coords = [(g.nodes[n]["longitude"], g.nodes[n]["latitude"]) for n in g.nodes()]
         hull = MultiPoint(coords).convex_hull
         return hull.area / germany_polygon.area
 
@@ -187,12 +186,10 @@ def genetic_algorithm(
         vals = [
             (m["average_distance"] - b["average_distance"][0])
             / (b["average_distance"][1] - b["average_distance"][0]),
-            (m["diameter"] - b["diameter"][0])
-            / (b["diameter"][1] - b["diameter"][0]),
+            (m["diameter"] - b["diameter"][0]) / (b["diameter"][1] - b["diameter"][0]),
             (m["average_clustering"] - b["clustering"][0])
             / (b["clustering"][1] - b["clustering"][0]),
-            1 - (m["density"] - b["density"][0])
-            / (b["density"][1] - b["density"][0]),
+            1 - (m["density"] - b["density"][0]) / (b["density"][1] - b["density"][0]),
             1 - cov,
         ]
         w = list(FITNESS_WEIGHTS.values())
@@ -278,7 +275,8 @@ def genetic_algorithm(
 
     logger.info(
         "Optimized: %d nodes, %d edges",
-        result.number_of_nodes(), result.number_of_edges(),
+        result.number_of_nodes(),
+        result.number_of_edges(),
     )
     return result
 
@@ -292,7 +290,9 @@ def run(year: int, num_stations: int) -> nx.Graph:
     logger.info("Loaded baseline network for %d", year)
 
     optimized = genetic_algorithm(
-        graph, data, polygon,
+        graph,
+        data,
+        polygon,
         num_new_stations=num_stations,
         year=year,
     )
@@ -309,7 +309,8 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     parser = argparse.ArgumentParser(description="Optimize EV station placement via GA")
     parser.add_argument("--year", type=int, required=True, help="Base year")
-    parser.add_argument("--num-stations", type=int, required=True,
-                        help="Number of new stations to place")
+    parser.add_argument(
+        "--num-stations", type=int, required=True, help="Number of new stations to place"
+    )
     args = parser.parse_args()
     run(args.year, args.num_stations)
